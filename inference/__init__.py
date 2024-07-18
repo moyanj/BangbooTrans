@@ -5,7 +5,7 @@ import torch
 import json
 
 class Inference:
-    def __init__(self, model_name,model_base='Models', compile_model=False, force_cpu=False):
+    def __init__(self, model_name,model_base='models', compile_model=False, force_cpu=False):
         model_path = os.path.join(model_base,model_name)
         self.model_path = model_path
         
@@ -48,7 +48,7 @@ class Inference:
             
             encoder_hidden = self.encoder.init_hidden()
 
-            encoder_outputs = torch.zeros(max_length, self.encoder.hidden_size)
+            encoder_outputs = torch.zeros(max_length, self.encoder.hidden_size, device=self.device)
             print('Encoding...')
             for ei in range(input_length):
                 encoder_output, encoder_hidden = self.encoder(input_tensor[ei], encoder_hidden)
