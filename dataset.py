@@ -28,7 +28,7 @@ class Lang:
             "name": self.name,
             "n_chars": self.n_chars,
             "char2index": self.char2index,
-            "index2index": self.index2char,
+            "index2char": self.index2char,
         }
         json.dump(data, fp)
 

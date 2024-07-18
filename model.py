@@ -3,15 +3,16 @@ import torch
 import config
 
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, hidden2_size, num_layers):
+    def __init__(self, input_size, hidden_size, hidden2_size, num_layers, dropout):
         super(EncoderRNN, self).__init__()
 
         self.hidden_size = hidden_size
         self.hidden2_size = hidden2_size
         self.num_layers = num_layers
+        self.dropout = dropout
 
         self.embedding = nn.Embedding(input_size, hidden2_size)
-        self.lstm = nn.LSTM(hidden2_size, hidden_size, num_layers=num_layers)
+        self.lstm = nn.LSTM(hidden2_size, hidden_size, num_layers=num_layers,dropout=dropout)
 
     def forward(self, inputs, hidden=None):
         if hidden is None:
@@ -30,13 +31,14 @@ class EncoderRNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, hidden2_size, num_layers):
+    def __init__(self, hidden_size, output_size, hidden2_size, num_layers, dropout):
         super(DecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
+        self.dropout = dropout
 
         self.embedding = nn.Embedding(output_size, hidden2_size)
-        self.lstm = nn.LSTM(hidden2_size, hidden_size, num_layers=num_layers)
+        self.lstm = nn.LSTM(hidden2_size, hidden_size, num_layers=num_layers, dropout=dropout)
         self.out = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=1)
 
@@ -56,4 +58,4 @@ class DecoderRNN(nn.Module):
         )
 
 
-criterion = nn.NLLLoss()
+criterion = nn.CrossEntropyLoss()

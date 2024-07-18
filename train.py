@@ -15,14 +15,19 @@ encoder = EncoderRNN(
     config.hidden_size,
     config.hidden2_size,
     config.encoder_layers,
+    config.dropout
 ).to(config.device)
+encoder.train()
 
 decoder = DecoderRNN(
     config.hidden_size,
     dataset.output_lang.n_chars,
     config.hidden2_size,
     config.decoder_layers,
+    config.dropout
 ).to(config.device)
+decoder.train()
+
 
 # 如果需要编译模型
 if config.compile_model:
@@ -94,9 +99,16 @@ def _train(
     return loss.item() / target_length  # 返回平均损失
 
 
+import random
+
 def train(n_iters, print_every, plot_every):
     total_loss = 0
+    
     for iter in range(1, n_iters + 1):
+        # Shuffle dataset pairs at the beginning of each epoch
+        if iter % len(dataset.pairs) == 1:
+            random.shuffle(dataset.pairs)
+        
         training_pair = dataset.pairs[(iter - 1) % len(dataset.pairs)]
         input_tensor = dataset.tensor_from_sentence(
             dataset.input_lang, training_pair[config.input_id]
@@ -122,8 +134,8 @@ def train(n_iters, print_every, plot_every):
                 % (iter, iter / n_iters * 100, total_loss / print_every)
             )
             total_loss = 0
+    
     return loss
-
 
 def count_parameters(model):
     """计算模型参数的数量"""
@@ -201,7 +213,8 @@ def save(last_loss):
         "criterion": type(criterion).__name__,  # 损失器名称
         "device": str(config.device),
         "compile": config.compile_model,
-        'num_layers':config.encoder_layers
+        'num_layers':config.encoder_layers,
+        'dropout':config.dropout
     }
     json.dump(
         metadata,
