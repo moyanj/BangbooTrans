@@ -17,7 +17,7 @@ class EncoderRNN(nn.Module):
     def forward(self, inputs, hidden=None):
         if hidden is None:
             hidden = self.init_hidden()
-
+        inputs.to(self.device)
         embedded = self.embedding(inputs).view(1, 1, -1).to(self.device)
         output, hidden = self.lstm(embedded, hidden)
 
@@ -46,7 +46,7 @@ class DecoderRNN(nn.Module):
     def forward(self, input, hidden=None):
         if hidden is None:
             hidden = self.init_hidden()
-
+        input.to(self.device)
         output = self.embedding(input).view(1, 1, -1).to(self.device)
         output, hidden = self.lstm(output, hidden)
         output = self.softmax(self.out(output[0]))
