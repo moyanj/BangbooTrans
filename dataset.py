@@ -1,10 +1,13 @@
 import torch
 import json
+import os
 import config
+from config import logger
 
 SOS_token = 0
 EOS_token = 1
 UNK_token = 2
+
 
 class Lang:
     def __init__(self, name):
@@ -30,7 +33,7 @@ class Lang:
             "char2index": self.char2index,
             "index2char": self.index2char,
         }
-        json.dump(data, fp)
+        json.dump(data, fp, ensure_ascii=False)
 
     @classmethod
     def load(cls, fp):
@@ -40,6 +43,7 @@ class Lang:
         cla.index2char = data["index2char"]
         cla.n_chars = data["n_chars"]
         return cla
+
 
 def indexes_from_sentence(lang, sentence):
     return [lang.char2index.get(char, UNK_token) for char in sentence]
@@ -51,20 +55,25 @@ def tensor_from_sentence(lang, sentence):
     return torch.tensor(indexes, dtype=torch.long).view(-1, 1).to(config.device)
 
 
-input_lang = Lang("邦布")
-output_lang = Lang("中文")
+def get_datas(path):
+    logger.info('加载数据集中。。。')
+    for pat in os.listdir(path):
+        if ".csv" in pat:
+            for line in open(os.path.join(path, pat)).read().split("\n"):
+                yield line.split(",")
+
+
+input_lang = Lang("Input")
+output_lang = Lang("Output")
 pairs = []
-    
-dataset = open("邦布语数据集.csv").read().split("\n")
-    
-for line in dataset:
-    pair = line.split(",")
+
+dataset = get_datas("dataset/")
+
+for pair in dataset:
     pairs.append(pair)
     input_lang.add_sentence(pair[config.input_id])
     output_lang.add_sentence(pair[config.output_id])
 
-print("Input language: ", input_lang.name)
-print("Number of characters: ", input_lang.n_chars)
-print("Output language: ", output_lang.name)
-print("Number of characters: ", output_lang.n_chars)
-  
+logger.info(f"输入语言字符数: {input_lang.n_chars}")
+logger.info(f"输出语言字符数: { output_lang.n_chars }")
+logger.info(f'数据量：{len(pairs)}')

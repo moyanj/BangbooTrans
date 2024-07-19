@@ -4,10 +4,12 @@ import torch.optim as optim
 import os
 import time
 import json
+import random
 
 from model import EncoderRNN, DecoderRNN, criterion
 import dataset
 import config
+from config import logger
 
 # 创建模型实例
 encoder = EncoderRNN(
@@ -16,7 +18,7 @@ encoder = EncoderRNN(
     config.hidden2_size,
     config.encoder_layers,
     config.dropout,
-    config.device
+    config.device,
 ).to(config.device)
 encoder.train()
 
@@ -26,7 +28,7 @@ decoder = DecoderRNN(
     config.hidden2_size,
     config.decoder_layers,
     config.dropout,
-    config.device
+    config.device,
 ).to(config.device)
 decoder.train()
 
@@ -37,9 +39,10 @@ if config.compile_model:
     decoder = torch.compile(decoder)
 
 # 创建优化器
-optimizer = getattr(optim,config.optimer)
+optimizer = getattr(optim, config.optimer)
 encoder_optimizer = optimizer(encoder.parameters(), lr=config.lr)
 decoder_optimizer = optimizer(decoder.parameters(), lr=config.lr)
+
 
 def _train(
     input_tensor,
@@ -100,17 +103,14 @@ def _train(
 
     return loss.item() / target_length  # 返回平均损失
 
-
-import random
-
-def train(n_iters, print_every, plot_every):
+def train(n_iters, print_every, save_every, model_dir):
     total_loss = 0
-    
+    losses = []
     for iter in range(1, n_iters + 1):
         # Shuffle dataset pairs at the beginning of each epoch
         if iter % len(dataset.pairs) == 1:
             random.shuffle(dataset.pairs)
-        
+
         training_pair = dataset.pairs[(iter - 1) % len(dataset.pairs)]
         input_tensor = dataset.tensor_from_sentence(
             dataset.input_lang, training_pair[config.input_id]
@@ -129,15 +129,16 @@ def train(n_iters, print_every, plot_every):
             criterion,
         )
         total_loss += loss
-
+        losses.append(loss)
         if iter % print_every == 0:
-            print(
-                "(%d %d%%) Loss: %.8f"
-                % (iter, iter / n_iters * 100, total_loss / print_every)
-            )
+            logger.info(f"({iter / n_iters * 100:.2f}%) Epoch: {iter} Loss: {total_loss / print_every:.10f}")
             total_loss = 0
-    
-    return loss
+            
+        if iter % save_every == 0:
+            save(os.path.join(model_dir,str(iter)))
+
+    return losses
+
 
 def count_parameters(model):
     """计算模型参数的数量"""
@@ -150,37 +151,14 @@ def get_para():
     decoder_params = count_parameters(decoder)
     total_params = encoder_params + decoder_params
 
-    print(f"Encoder parameters: {encoder_params}")
-    print(f"Decoder parameters: {decoder_params}")
-    print(f"Total parameters: {total_params}")
+    logger.debug(f"Encoder 参数量: {encoder_params}")
+    logger.debug(f"Decoder 参数量: {decoder_params}")
+    logger.debug(f"总参数量: {total_params}")
     return encoder_params, decoder_params
 
-
-def save_model_as_onnx(model, input_tensor, hidden_tensor, model_dir, model_name):
-    """将模型保存为ONNX格式"""
-    onnx_path = os.path.join(model_dir, model_name)
-    os.makedirs(model_dir, exist_ok=True)
-    torch.onnx.export(
-        model,
-        (input_tensor, hidden_tensor),
-        onnx_path,
-        export_params=True,  # 保存模型参数
-        opset_version=10,  # ONNX操作集版本
-        do_constant_folding=True,  # 常量折叠优化
-        input_names=["input"],  # 输入名
-        output_names=["output"],  # 输出名
-        dynamic_axes={
-            "input": {0: "batch_size"},
-            "output": {0: "batch_size"},
-        },  # 动态轴
-    )
-    print(f"Model saved as ONNX at {onnx_path}")
-
-
-def save(last_loss):
+def save(model_dir):
+    os.makedirs(model_dir,exist_ok=True)
     """保存模型和相关信息"""
-    model_dir = os.path.join("models", str(int(time.time())))
-    os.makedirs(model_dir)
     torch.save(encoder.state_dict(), os.path.join(model_dir, "encoder.pth"))
     torch.save(decoder.state_dict(), os.path.join(model_dir, "decoder.pth"))
     torch.save(
@@ -193,6 +171,10 @@ def save(last_loss):
     dataset.input_lang.dump(open(os.path.join(model_dir, "input_vocab.json"), "w"))
     dataset.output_lang.dump(open(os.path.join(model_dir, "output_vocab.json"), "w"))
 
+def create_modle():
+    logger.info('开始训练')
+    model_dir = os.path.join("models", str(int(time.time())))
+    os.makedirs(os.path.join(model_dir,'checkpoint'))
     e_para, d_para = get_para()
 
     metadata = {
@@ -210,38 +192,17 @@ def save(last_loss):
         "hidden_dim2": config.hidden2_size,
         "seed": torch.initial_seed(),
         "time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-        "loss": last_loss,
         "optimizer": type(encoder_optimizer).__name__,  # 优化器名称
         "criterion": type(criterion).__name__,  # 损失器名称
         "device": str(config.device),
         "compile": config.compile_model,
-        'num_layers':config.encoder_layers,
-        'dropout':config.dropout
+        "num_layers": config.encoder_layers,
+        "dropout": config.dropout,
     }
-    json.dump(
-        metadata,
-        open(os.path.join(model_dir, "metadata.json"), "w"),
-        indent=4,
-        ensure_ascii=False,
-    )
-    dummy_input = torch.tensor([[dataset.SOS_token]], device=config.device)
-    dummy_hidden = encoder.init_hidden()  # 初始化隐藏状态
-    save_model_as_onnx(
-        encoder,
-        dummy_input,
-        dummy_hidden,
-        os.path.join(model_dir, "onnx"),
-        "encoder.onnx",
-    )
-    save_model_as_onnx(
-        decoder,
-        dummy_input,
-        dummy_hidden,
-        os.path.join(model_dir, "onnx"),
-        "decoder.onnx",
-    )
+    losses = train(config.epochs, config.print_every, config.save_every, os.path.join(model_dir,'checkpoint'))
+    metadata['loss'] = losses
+    json.dump(metadata, open(os.path.join(model_dir,'metadata.json'),'w'),indent=4,ensure_ascii=False)
+    save(model_dir)
+    logger.success(f'模型保存至：{model_dir}')
 
-
-# 开始训练并保存最后的损失值
-last_loss = train(config.epochs, config.print_every, config.plot_every)
-save(last_loss)
+create_modle()
