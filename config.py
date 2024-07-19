@@ -12,16 +12,16 @@ device = torch.device(
 )
 
 # 定义模型参数
-hidden_size = 2048  # 隐藏层大小
+hidden_size = 1024  # 隐藏层大小
 hidden2_size = 2048 # 第二隐藏层大小，比第一个隐藏层稍大
-encoder_layers = 8  # 编码器层数
-decoder_layers = 8  # 解码器层数
+encoder_layers = 6  # 编码器层数
+decoder_layers = 6  # 解码器层数
 lr = 0.01  # 学习率
-epochs = 25 # 训练轮数
+epochs = 35 # 训练轮数
 dropout = 0.800
 print_every = 1  # 每训练多少轮打印一次信息
 plot_every = 1  # 每训练多少轮绘图一次
-max_length = 25  # 序列的最大长度
+max_length = 30  # 序列的最大长度
 optimer = 'RMSprop'
 
 input_id = 1

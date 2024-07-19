@@ -15,7 +15,8 @@ encoder = EncoderRNN(
     config.hidden_size,
     config.hidden2_size,
     config.encoder_layers,
-    config.dropout
+    config.dropout,
+    config.device
 ).to(config.device)
 encoder.train()
 
@@ -24,7 +25,8 @@ decoder = DecoderRNN(
     dataset.output_lang.n_chars,
     config.hidden2_size,
     config.decoder_layers,
-    config.dropout
+    config.dropout,
+    config.device
 ).to(config.device)
 decoder.train()
 

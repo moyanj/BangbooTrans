@@ -21,11 +21,11 @@ class Inference:
         self.output_lang = dataset.Lang.load(open(os.path.join(model_path,'output_vocab.json')), self.device)
         
         self.encoder = EncoderRNN(self.input_lang.n_chars, self.metadata['hidden_dim'], self.metadata['hidden_dim2'], self.metadata['num_layers'],self.metadata['dropout'],self.device)
-        self.encoder.load_state_dict(torch.load(os.path.join(model_path,'encoder.pth'),map_location=self.device))
+        self.encoder.load_state_dict(torch.load(os.path.join(model_path,'encoder.pth'),map_location=self.device),strict=False)
         self.encoder.eval()
         
         self.decoder = DecoderRNN(self.metadata['hidden_dim'], self.output_lang.n_chars, self.metadata['hidden_dim2'], self.metadata['num_layers'],self.metadata['dropout'] , self.device)
-        self.decoder.load_state_dict(torch.load(os.path.join(model_path,'decoder.pth'),map_location=self.device))
+        self.decoder.load_state_dict(torch.load(os.path.join(model_path,'decoder.pth'),map_location=self.device),strict=False)
         self.decoder.eval()
         
         if compile_model:
