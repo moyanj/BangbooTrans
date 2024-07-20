@@ -131,7 +131,7 @@ def train(n_iters, print_every, save_every, model_dir):
             
             losses.append(loss)
             if iter % print_every == 0:
-                logger.info(f"Epoch: {iter}/{config.epoch} Step: {n} Loss: {loss :.10f}")
+                logger.info(f"Epoch: {iter}/{config.epochs} Step: {n} Loss: {loss :.10f}")
             n += 1
             
         n = 1
