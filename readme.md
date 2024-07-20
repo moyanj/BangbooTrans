@@ -2,14 +2,21 @@
 
 ![LSTM](https://img.shields.io/badge/Model-LSTM-blue) ![GPU Support](https://img.shields.io/badge/Support-GPU-green) ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-BangbooTrans 是一个基于长短期记忆网络（LSTM）的邦布语翻译器。该项目旨在使用深度学习技术，实现从源语言到邦布语的高质量翻译。
-
-## 功能特性
+BangbooTrans 是一个基于长短期记忆网络（LSTM）的邦布语翻译器。该项目旨在使用深度学习技术，实现从中文到邦布语的高质量翻译。
 
 - ![Translation](https://img.shields.io/badge/Feature-Translation-blue) 使用LSTM模型进行翻译。
 - ![GPU](https://img.shields.io/badge/Feature-GPU%20Support-green) 支持GPU训练，以加快模型训练速度。
 - ![Logs](https://img.shields.io/badge/Feature-Logs-orange) 提供详细的训练日志和评估结果。
 - ![Extendable](https://img.shields.io/badge/Feature-Extendable-brightgreen) 易于扩展和改进的代码架构。
+
+## 项目描述
+
+- 本项目是基于 `LSTM` 的 `seq2seq` 翻译模型。
+- 代码中给出了许多详细的中文注释，方便大家更好地理解代码。
+- 本项目可以实现中文到 绝区零 邦布语的翻译。
+
+## 警告⚠️
+由于邦布语数据集极小，若需加载大型数据集，请确保机器内存足够。（将一次性全部读取至内存）
 
 ## 依赖安装
 
@@ -21,7 +28,7 @@ pip install -r requirements.txt
 
 ## 数据准备
 
-请将您的数据集保存为 `邦布语数据集.csv` 文件，第一列为邦布语，第二列为中文。
+请将您的数据集保存至`dataset`目录，且为`.csv`格式，第一列为邦布语，第二列为中文。
 
 ## 使用方法
 
@@ -37,6 +44,7 @@ pip install -r requirements.txt
 python train.py
 ```
 
+训练后，模型将保存于modelsmll
 ### 评估模型
 
 训练完成后，你可以使用以下命令评估模型性能：
@@ -58,26 +66,6 @@ translation = translator.eval(source_text)
 print(translation)
 ```
 
-## 文件结构
-
-```plaintext
-BangbooTrans/
-├── 邦布语数据集.csv
-├── config.py
-├── dataset.py
-├── Deploy/
-│   └── onnx.jsTest.html
-├── inference/
-│   ├── __init__.py
-│   ├── dataset.py
-│   ├── model.py
-├── model.py
-├── requirements.txt
-├── test.py
-├── train.py
-├── readme.md
-└── webui.py
-```
 
 ## 项目贡献
 
