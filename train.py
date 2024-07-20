@@ -5,6 +5,7 @@ import os
 import time
 import json
 import random
+import sys
 
 from model import EncoderRNN, DecoderRNN, criterion
 import dataset
@@ -16,8 +17,9 @@ encoder = EncoderRNN(
     dataset.input_lang.n_chars,
     config.hidden_size,
     config.hidden2_size,
-    config.encoder_layers,
+    config.num_layers,
     config.dropout,
+    config.num_heads,
     config.device,
 ).to(config.device)
 encoder.train()
@@ -26,7 +28,7 @@ decoder = DecoderRNN(
     config.hidden_size,
     dataset.output_lang.n_chars,
     config.hidden2_size,
-    config.decoder_layers,
+    config.num_layers,
     config.dropout,
     config.device,
 ).to(config.device)
@@ -132,6 +134,7 @@ def train(n_iters, print_every, save_every, model_dir):
             losses.append(loss)
             if iter % print_every == 0:
                 logger.info(f"Epoch: {iter}/{config.epochs} Step: {n} Loss: {loss :.10f}")
+                sys.stdout.flush()
             n += 1
             
         n = 1
@@ -198,12 +201,15 @@ def create_modle():
         "criterion": type(criterion).__name__,  # 损失器名称
         "device": str(config.device),
         "compile": config.compile_model,
-        "num_layers": config.encoder_layers,
+        "num_layers": config.num_layers,
+        'num_heads':config.num_heads,
         "dropout": config.dropout,
     }
     losses = train(config.epochs, config.print_every, config.save_every, os.path.join(model_dir,'checkpoint'))
     metadata['loss'] = losses
     json.dump(metadata, open(os.path.join(model_dir,'metadata.json'),'w'),indent=4,ensure_ascii=False)
+    encoder.eval()
+    decoder.eval()
     save(model_dir)
     logger.success(f'模型保存至：{model_dir}')
 

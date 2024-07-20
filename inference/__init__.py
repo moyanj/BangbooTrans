@@ -33,6 +33,7 @@ class Inference:
             self.metadata["hidden_dim2"],
             self.metadata["num_layers"],
             self.metadata["dropout"],
+            self.metadata['num_heads'],
             self.device,
         )
         self.encoder.load_state_dict(

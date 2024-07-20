@@ -13,11 +13,11 @@ device = torch.device(
 )
 
 # 定义模型参数
-hidden_size = 512  # 隐藏层大小
-hidden2_size = 512  # 第二隐藏层大小，比第一个隐藏层稍大
-encoder_layers = 4  # 编码器层数
-decoder_layers = 4  # 解码器层数
+hidden_size = 1024  # 隐藏层大小
+hidden2_size = 1536  # 第二隐藏层大小，比第一个隐藏层稍大
+num_layers = 4  # 编码器层数
 lr = 0.01  # 学习率
+num_heads = 4
 epochs = 5  # 训练轮数
 dropout = 0.8 # dropout率
 print_every = 1  # 每训练多少轮打印一次信息
@@ -42,6 +42,7 @@ logger.add(
     )
 )
 
-logger.info('使用的设备：'+str(device))
-logger.info(f'训练轮数：{epochs}')
-logger.info(f'LSTM层数：{encoder_layers *2}')
+logger.debug('使用的设备：'+str(device))
+logger.debug(f'训练轮数：{epochs}')
+logger.debug(f'LSTM层数：{num_layers *2}')
+logger.debug(f'注意力头数：{num_heads}')
