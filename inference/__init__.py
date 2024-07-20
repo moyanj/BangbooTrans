@@ -38,8 +38,7 @@ class Inference:
         self.encoder.load_state_dict(
             torch.load(
                 os.path.join(model_path, "encoder.pth"), map_location=self.device
-            ),
-            strict=False,
+            )
         )
         self.encoder.eval()
 
@@ -54,8 +53,7 @@ class Inference:
         self.decoder.load_state_dict(
             torch.load(
                 os.path.join(model_path, "decoder.pth"), map_location=self.device
-            ),
-            strict=False,
+            )
         )
         self.decoder.eval()
 
