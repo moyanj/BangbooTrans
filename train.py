@@ -110,30 +110,32 @@ def train(n_iters, print_every, save_every, model_dir):
         # Shuffle dataset pairs at the beginning of each epoch
         if iter % len(dataset.pairs) == 1:
             random.shuffle(dataset.pairs)
-
-        training_pair = dataset.pairs[(iter - 1) % len(dataset.pairs)]
-        input_tensor = dataset.tensor_from_sentence(
-            dataset.input_lang, training_pair[config.input_id]
-        )
-        target_tensor = dataset.tensor_from_sentence(
-            dataset.output_lang, training_pair[config.output_id]
-        )
-
-        loss = _train(
-            input_tensor,
-            target_tensor,
-            encoder,
-            decoder,
-            encoder_optimizer,
-            decoder_optimizer,
-            criterion,
-        )
-        total_loss += loss
-        losses.append(loss)
-        if iter % print_every == 0:
-            logger.info(f"({iter / n_iters * 100:.2f}%) Epoch: {iter} Loss: {total_loss / print_every:.10f}")
-            total_loss = 0
+        n = 1
+        for training_pair in dataset.pairs:
+            input_tensor = dataset.tensor_from_sentence(
+                dataset.input_lang, training_pair[config.input_id]
+            )
+            target_tensor = dataset.tensor_from_sentence(
+                dataset.output_lang, training_pair[config.output_id]
+            )
+    
+            loss = _train(
+                input_tensor,
+                target_tensor,
+                encoder,
+                decoder,
+                encoder_optimizer,
+                decoder_optimizer,
+                criterion,
+            )
             
+            losses.append(loss)
+            if iter % print_every == 0:
+                logger.info(f"Epoch: {iter}/{config.epoch} Step: {n} Loss: {loss :.10f}")
+            n += 1
+            
+        n = 1
+                
         if iter % save_every == 0:
             save(os.path.join(model_dir,str(iter)))
 

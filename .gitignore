@@ -50,6 +50,7 @@ venv.bak/
 /site
 .idea/
 
-Models/
+models/
 
 *.zip
+*.pth
