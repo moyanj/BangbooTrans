@@ -1,92 +1,118 @@
+# pylint:disable=W0612
 import torch.nn as nn
 import torch
+import random
+import torch.nn.functional as F
 
 class SelfAttention(nn.Module):
     def __init__(self, hidden_size, num_heads):
         super(SelfAttention, self).__init__()
         self.hidden_size = hidden_size
         self.num_heads = num_heads
-        self.attention = nn.MultiheadAttention(embed_dim=hidden_size, num_heads=num_heads)
+        self.attn = nn.MultiheadAttention(embed_dim=hidden_size, num_heads=num_heads)
 
-    def forward(self, x):
-        # x的形状为 (seq_len, batch_size, hidden_size)
-        attn_output, _ = self.attention(x, x, x)
-        return attn_output
-        
-        
+    def forward(self, query, key, value, mask=None):
+        attn_output, attn_weights = self.attn(query, key, value, attn_mask=mask)
+        return attn_output, attn_weights
+
+
 class EncoderRNN(nn.Module):
     def __init__(
-        self, input_size, hidden_size, hidden2_size, num_layers, dropout, num_heads, device
+        self,
+        input_dim,
+        embed_dim,
+        hidden_dim,
+        output_dim,
+        num_layers,
+        dropout,
+        num_heads,
     ):
         super(EncoderRNN, self).__init__()
 
-        self.hidden_size = hidden_size
-        self.hidden2_size = hidden2_size
-        self.num_layers = num_layers
-        self.dropout = dropout
-        self.device = device
+        self.hidden = None
 
-        self.embedding = nn.Embedding(input_size, hidden2_size, )#device=self.device)
+        self.embedding = nn.Embedding(input_dim, embed_dim)
+
         self.lstm = nn.LSTM(
-            hidden2_size,
-            hidden_size,
-            num_layers=num_layers,
-            dropout=dropout,
+            embed_dim, hidden_dim, num_layers=num_layers, dropout=dropout
         )
-        self.self_attention = SelfAttention(hidden_size, num_heads)
+        self.attention = SelfAttention(hidden_dim, num_heads)
+        self.fc = nn.Linear(hidden_dim, output_dim)
 
+    def forward(self, inputs):
 
-    def forward(self, inputs, hidden=None):
-        if hidden is None:
-            hidden = self.init_hidden()
+        embedded = self.embedding(inputs)
 
-        embedded = self.embedding(inputs).view(1, 1, -1)#.to(self.device)
-        output, hidden = self.lstm(embedded, hidden)
-        output = self.self_attention(output) 
-        return output, hidden
-
-    def init_hidden(self):
-        return (
-            torch.zeros(self.num_layers, 1, self.hidden_size, device=self.device),
-            torch.zeros(self.num_layers, 1, self.hidden_size, device=self.device),
-        )
+        output, self.hidden = self.lstm(embedded)
+        attn_output, attn_weights = self.attention(output, output, output)
+        attn_output = self.fc(attn_output)
+        return attn_output
 
 
 class DecoderRNN(nn.Module):
     def __init__(
-        self, hidden_size, output_size, hidden2_size, num_layers, dropout, device
+        self, input_dim, embed_dim, hidden_dim, output_dim, num_layers, dropout, n_heads
     ):
         super(DecoderRNN, self).__init__()
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.dropout = dropout
-        self.device = device
 
-        self.embedding = nn.Embedding(output_size, hidden2_size,)# device=self.device)
+        self.embedding = nn.Embedding(input_dim, embed_dim)
         self.lstm = nn.LSTM(
-            hidden2_size,
-            hidden_size,
+            embed_dim,
+            hidden_dim,
             num_layers=num_layers,
             dropout=dropout,
-       #     device=self.device,
         )
-        self.out = nn.Linear(hidden_size, output_size, )#device=self.device)
-        self.softmax = nn.LogSoftmax(dim=1)
+        self.attn = SelfAttention(hidden_dim, n_heads)
+        self.out = nn.Linear(hidden_dim, output_dim)
 
-    def forward(self, input, hidden=None):
-        if hidden is None:
-            hidden = self.init_hidden()
+        self.key_cache = None
+        self.value_cache = None
+        self.hidden = None
 
-        output = self.embedding(input).view(1, 1, -1)#.to(self.device)
-        output, hidden = self.lstm(output, hidden)
-        output = self.softmax(self.out(output[0]))
-        return output, hidden
+    def forward(self, target, encoder_outputs, step=0):
+        target = target.unsqueeze(0)
+        output = self.embedding(target)
+        output, self.hidden = self.lstm(output, self.hidden)
 
-    def init_hidden(self):
-        return (
-            torch.zeros(self.num_layers, 1, self.hidden_size, device=self.device),
-            torch.zeros(self.num_layers, 1, self.hidden_size, device=self.device),
-        )
+        if step == 0:
+            self.key_cache = encoder_outputs
+            self.value_cache = encoder_outputs
+        else:
+            self.key_cache = torch.cat((self.key_cache, encoder_outputs), dim=0)
+            self.value_cache = torch.cat((self.value_cache, encoder_outputs), dim=0)
+
+        attn_output, attn_weights = self.attn(output, output, output)
+        attn_output = attn_output.squeeze(0)
+        prediction = self.out(attn_output)
+        prediction = F.softmax(prediction, dim=1) # 将输出转换为概率分布 
+        return prediction
 
 
-criterion = nn.CrossEntropyLoss()
+class Bangboo(nn.Module):
+    def __init__(self, encoder, decoder, device):
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        self.device = device
+
+    def forward(self, src, trg, teacher_forcing_ratio=0.0):
+
+        batch_size = trg.shape[1]
+        trg_len = trg.shape[0]
+        trg_vocab_size = self.decoder.out.out_features
+
+        outputs = torch.zeros(trg_len, batch_size, trg_vocab_size).to(self.device)
+
+        encoder_outputs = self.encoder(src)
+
+        self.decoder.hidden = self.encoder.hidden
+
+        inputs = trg[0, :].to(self.device)
+
+        for t in range(1, trg_len):
+            output = self.decoder(inputs, encoder_outputs, step=t - 1)
+            outputs[t] = output
+            top1 = output.argmax(1)
+            inputs = trg[t] if random.random() < teacher_forcing_ratio else top1
+
+        return outputs
