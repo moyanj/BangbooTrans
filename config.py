@@ -15,12 +15,12 @@ device = torch.device(
 
 # 模型参数
 embed_dim = 512  # 嵌入层大小
-hidden_dim = 1024  # 第一隐藏层大小，比第一个隐藏层稍大
-hidden_dim2 = 2048  # 第二隐藏层大小，比第一个隐藏层稍大
-hidden_dim3 = 1024  # 第三隐藏层大小
-num_layers = 6  # LSTM层数
+hidden_dim = 512  # 第一隐藏层大小，比第一个隐藏层稍大
+hidden_dim2 = 512  # 第二隐藏层大小，比第一个隐藏层稍大
+hidden_dim3 = 512  # 第三隐藏层大小
+num_layers = 3  # LSTM层数
 dropout = 0.8  # dropout率
-num_heads = 4  # 注意力头数
+num_heads = 2  # 注意力头数
 
 # 训练设置
 optimer = "RMSprop"  # 优化器

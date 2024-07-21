@@ -1,9 +1,11 @@
-from model import EncoderRNN, DecoderRNN
+#pylint:disable=W0612
+#pylint:disable=E1102
+from model import EncoderRNN, DecoderRNN, Bangboo
 from . import dataset
 import os
 import torch
+from torch.utils.data import TensorDataset, DataLoader
 import json
-
 
 class Inference:
     def __init__(
@@ -29,86 +31,52 @@ class Inference:
 
         self.encoder = EncoderRNN(
             self.input_lang.n_chars,
+            self.metadata['embed_dim'],
             self.metadata["hidden_dim"],
             self.metadata["hidden_dim2"],
             self.metadata["num_layers"],
             self.metadata["dropout"],
             self.metadata["num_heads"],
-            self.device,
-        )
-        self.encoder.load_state_dict(
-            torch.load(
-                os.path.join(model_path, "encoder.pth"), map_location=self.device
-            )
-        )
-        self.encoder.eval()
-
+        ).to(self.device)
+        
         self.decoder = DecoderRNN(
-            self.metadata["hidden_dim"],
-            self.output_lang.n_chars,
             self.metadata["hidden_dim2"],
+            self.metadata["embed_dim"],
+            self.metadata["hidden_dim3"],
+            self.output_lang.n_chars,
             self.metadata["num_layers"],
             self.metadata["dropout"],
-            self.device,
-        )
-        self.decoder.load_state_dict(
-            torch.load(
-                os.path.join(model_path, "decoder.pth"), map_location=self.device
-            )
-        )
-        self.decoder.eval()
-
-        if compile_model:
-            self.encoder.compile()
-            self.decoder.compile()
+            self.metadata['num_heads'],
+        ).to(self.device)
+        
+        self.model = Bangboo(self.encoder, self.decoder, self.device).to(self.device)
+        self.model.load_state_dict(torch.load(os.path.join(model_path, "model.pth"), map_location=self.device))
+        
+        if compile_model and hasattr(self.model, 'compile'):
+            self.model.compile()
 
     def indexes_from_sentence(self, lang, sentence):
-        return [lang.char2index.get(char, dataset.UNK_token) for char in sentence]
-
-    def tensor_from_sentence(self, lang, sentence):
-        indexes = self.indexes_from_sentence(lang, sentence)
+        """将句子转换为索引列表，并进行截断或填充"""
+        max_len = self.metadata['max_length']
+        indexes = [lang.char2index.get(char, dataset.UNK_token) for char in sentence]
         indexes.append(dataset.EOS_token)
-        return torch.tensor(indexes, dtype=torch.long).view(-1, 1).to(self.device)
+        if len(indexes) > max_len:
+            indexes = indexes[:max_len]  # 截断
+        else:
+            indexes.extend([dataset.EOS_token] * (max_len - len(indexes)))  # 填充
+        return indexes
 
-    def eval_steam(self, sentence, max_length=200):
-        with torch.no_grad():
-            input_tensor = self.tensor_from_sentence(self.input_lang, sentence)
-            input_length = input_tensor.size()[0]
-
-            encoder_hidden = self.encoder.init_hidden()
-
-            encoder_outputs = torch.zeros(
-                max_length, self.encoder.hidden_size, device=self.device
-            )
-            for ei in range(input_length):
-                encoder_output, encoder_hidden = self.encoder(
-                    input_tensor[ei], encoder_hidden
-                )
-                encoder_outputs[ei] += encoder_output[0, 0]
-
-            decoder_input = torch.tensor(
-                [[dataset.SOS_token]], device=self.device
-            )  # SOS
-            decoder_hidden = encoder_hidden
-            decoded_chars = []
-            for di in range(max_length):
-                decoder_output, decoder_hidden = self.decoder(
-                    decoder_input, decoder_hidden
-                )
-                topv, topi = decoder_output.data.topk(1)
-                if topi.item() == dataset.EOS_token:
-                    decoded_chars.append("EOS")
-                    break
-                else:
-                    decoded_char = self.output_lang.index2char.get(
-                        str(topi.item()), "UNK"
-                    )
-                    decoded_chars.append(decoded_char)
-                    yield decoded_char  # yield each character as it is decoded
-
-                decoder_input = topi.squeeze().detach().unsqueeze(0)
-
-            yield ""  # indicate end of sequence if streaming
-
-    def eval(self, *args, **kwargs):
-        return "".join(self.eval_steam(*args, **kwargs))
+    def tensor_from_sentence(self, lang, sentence, batch_size=1):
+        """将句子转换为张量，适合直接输入LSTM"""
+        indexes = self.indexes_from_sentence(lang, sentence)
+        # 将索引列表转换为张量，并增加维度 (seq_len, 1)
+        tensor = torch.tensor(indexes, dtype=torch.long).to(self.device)#.unsqueeze(1)
+        # 增加 batch_size 维度 (seq_len, batch_size)
+        # tensor = tensor.repeat(1, batch_size)
+        return tensor
+        
+    def eval(self, input_sentence):
+        # 将句子转换为索引张量 (seq_len, batch_size)
+        input_tensor = self.tensor_from_sentence(self.input_lang, input_sentence).to(self.device)
+        self.model.predict(input_tensor,self.metadata['max_length'])
+        return "".join(decoded_chars)

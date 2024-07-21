@@ -111,8 +111,8 @@ def save(model_dir):
     os.makedirs(model_dir, exist_ok=True)
     """保存模型和相关信息"""
 
-    torch.save(model.state_dict(), os.path.join(model_dir, "encoder.pth"))
-
+    torch.save(model.state_dict(), os.path.join(model_dir, "model.pth"))
+    
     dataset.dataset.input_lang.dump(
         open(os.path.join(model_dir, "input_vocab.json"), "w")
     )

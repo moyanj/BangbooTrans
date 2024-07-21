@@ -69,17 +69,10 @@ class DecoderRNN(nn.Module):
         self.value_cache = None
         self.hidden = None
 
-    def forward(self, target, encoder_outputs, step=0):
+    def forward(self, target):
         target = target.unsqueeze(0)
         output = self.embedding(target)
         output, self.hidden = self.lstm(output, self.hidden)
-
-        if step == 0:
-            self.key_cache = encoder_outputs
-            self.value_cache = encoder_outputs
-        else:
-            self.key_cache = torch.cat((self.key_cache, encoder_outputs), dim=0)
-            self.value_cache = torch.cat((self.value_cache, encoder_outputs), dim=0)
 
         attn_output, attn_weights = self.attn(output, output, output)
         attn_output = attn_output.squeeze(0)
@@ -94,9 +87,8 @@ class Bangboo(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
         self.device = device
-
+        
     def forward(self, src, trg, teacher_forcing_ratio=0.0):
-
         batch_size = trg.shape[1]
         trg_len = trg.shape[0]
         trg_vocab_size = self.decoder.out.out_features
@@ -104,15 +96,38 @@ class Bangboo(nn.Module):
         outputs = torch.zeros(trg_len, batch_size, trg_vocab_size).to(self.device)
 
         encoder_outputs = self.encoder(src)
-
         self.decoder.hidden = self.encoder.hidden
-
         inputs = trg[0, :].to(self.device)
 
         for t in range(1, trg_len):
-            output = self.decoder(inputs, encoder_outputs, step=t - 1)
+            output = self.decoder(inputs)
             outputs[t] = output
             top1 = output.argmax(1)
             inputs = trg[t] if random.random() < teacher_forcing_ratio else top1
 
         return outputs
+    
+    def predict(self, src, max_len, temperature=1.0, sos_idx=0, eos_idx=1):
+        self.encoder.eval()
+        self.decoder.eval()
+    
+        encoder_outputs = self.encoder(src)
+        self.decoder.hidden = self.encoder.hidden
+    
+        # 用 <SOS> 初始化输入
+        inputs = torch.tensor([[sos_idx]], device=self.device).unsqueeze(0).unsqueeze(0)
+        predictions = []
+    
+        for _ in range(max_len):
+            output = self.decoder(inputs.squeeze(1)  # 解码当前输入
+            output = output / temperature  # 应用温度参数
+            probabilities = F.softmax(output, dim=2)  # 计算概率分布
+            top1 = torch.multinomial(probabilities.squeeze(0).squeeze(0), 1).item()  # 使用采样方法
+    
+            if top1 == eos_idx:  # 如果预测的索引为 <EOS>
+                break
+            predictions.append(top1)  # 将索引添加到预测列表中
+            inputs = torch.tensor([top1], device=self.device).unsqueeze(0).unsqueeze(0)  # 更新输入张量的维度
+    
+        return predictions
+    
