@@ -13,7 +13,7 @@ device = torch.device(
     "cpu" if force_cpu else ("cuda" if torch.cuda.is_available() else "cpu")
 )
 
-# 定义模型参数
+# 模型参数
 embed_dim = 512  # 嵌入层大小
 hidden_dim = 1024  # 第一隐藏层大小，比第一个隐藏层稍大
 hidden_dim2 = 2048  # 第二隐藏层大小，比第一个隐藏层稍大
@@ -22,9 +22,9 @@ num_layers = 6  # LSTM层数
 dropout = 0.8  # dropout率
 num_heads = 4  # 注意力头数
 
+# 训练设置
 optimer = "RMSprop"  # 优化器
 loss_func = "CrossEntropyLoss"  # 创建优化器
-
 lr = 0.01  # 学习率
 epochs = 5  # 训练轮数
 teacher_forcing_ratio = 0.0  # Teacher-Forcing率
@@ -36,6 +36,11 @@ batch_size = 4  # 批数量
 
 input_id = 1
 output_id = 0
+
+# Tensorboard
+use_tensorboard = False  # 使用tensorboard
+tensorboard_path = "/root/tf-logs"
+tensorboard_comment = "MHYIC"
 
 logger.remove()
 

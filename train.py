@@ -5,7 +5,7 @@ import torch.nn as nn
 import os
 import time
 import json
-import sys
+from torch.utils.tensorboard import SummaryWriter
 
 from model import EncoderRNN, DecoderRNN, Bangboo
 import dataset
@@ -41,17 +41,23 @@ optimizer = optimizer(model.parameters(), lr=config.lr)
 # 创建损失函数
 criterion = nn.CrossEntropyLoss()
 
+if config.use_tensorboard:       
+    writer = SummaryWriter(
+        config.tensorboard_path,
+        comment=config.tensorboard_comment
+    )
+global_step = 0
 
 def train_epoch(model, dataloader, criterion, optimizer, epoch):
+    global global_step
     model.train()
     total_loss = 0
-
     for i, (src, trg) in enumerate(dataloader):
         src.to(config.device)
         trg.to(config.device)
-
+        
         optimizer.zero_grad()
-
+        
         output = model(src, trg, config.teacher_forcing_ratio)
         output_dim = output.shape[-1]
         output = output[:, 1:].reshape(-1, output_dim)
@@ -65,9 +71,13 @@ def train_epoch(model, dataloader, criterion, optimizer, epoch):
         optimizer.step()
 
         total_loss += loss
-        if (((epoch - 1) * len(dataloader) + i) % config.print_every ) == 0:
-            logger.info(f"Epoch: {epoch}/{config.epochs} Step: {i} Loss: {loss :.8f}")
+        global_step += 1
+        if config.use_tensorboard:
+            writer.add_scalar("Loss/train-Setp", loss, global_step)
 
+        if (((epoch - 1) * len(dataloader) + i) % config.print_every ) == 0:
+            logger.info(f"Epoch: {epoch}/{config.epochs} Step: {i+1} Loss: {loss :.8f}")
+        print(global_step)
     return total_loss / len(dataloader)
 
 
@@ -76,6 +86,10 @@ def train(epochs, model, dataloader, criterion, optimizer):
     for epoch in range(epochs):
         loss = train_epoch(model, dataloader, criterion, optimizer, epoch)
         losses.append(loss)
+        
+    if config.use_tensorboard:
+        writer.close()
+    
     return losses
 
 
