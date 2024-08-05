@@ -1,5 +1,5 @@
 # BangbooTrans
-## 当前代码存在重大Bug,无法运行
+## 当前代码存在重大Bug,无法运行，可能不会再继续进行更新，可使用旧的commit进行运行
 ![LSTM](https://img.shields.io/badge/Model-LSTM-blue) ![GPU Support](https://img.shields.io/badge/Support-GPU-green) ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 BangbooTrans 是一个基于长短期记忆网络（LSTM）的邦布语翻译器。该项目旨在使用深度学习技术，实现从中文到邦布语的高质量翻译。
